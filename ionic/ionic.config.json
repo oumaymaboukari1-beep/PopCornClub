@@ -1,0 +1,7 @@
+{
+  "name": "popcorn-club",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular-standalone"
+}

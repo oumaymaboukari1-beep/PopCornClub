@@ -1,0 +1,329 @@
+<ion-content [fullscreen]="true">
+  @if (!configured) {
+    <div class="setup-screen">
+      <div class="brand-mark"><ion-icon [icon]="icons.film" /></div>
+      <p class="eyebrow">VOTRE PROCHAINE SÉANCE COMMENCE ICI</p>
+      <h1>Popcorn <span>Club</span></h1>
+      <p class="setup-copy">
+        L’application est prête. Ajoutez vos identifiants Firebase dans
+        <code>src/environments/environment.ts</code> pour activer les comptes et les playlists.
+      </p>
+      <div class="setup-card">
+        <strong>À configurer</strong>
+        <span>Firebase Authentication et Cloud Firestore (sans Storage payant)</span>
+        <span>TMDB (facultatif, pour rechercher des films)</span>
+        <p>Les étapes sont détaillées dans <b>README.md</b>.</p>
+      </div>
+    </div>
+  } @else if (!profile()) {
+    <div class="auth-layout">
+      <main class="auth-main">
+        <div class="auth-brand"><ion-icon [icon]="icons.film" /> <span>Popcorn <b>Club</b></span></div>
+        <ion-card class="auth-card">
+          <ion-card-header>
+            <ion-card-title>{{ authMode() === 'login' ? 'Connexion' : 'Créer un compte' }}</ion-card-title>
+            <p class="auth-subtitle">{{ authMode() === 'login' ? 'Connectez-vous pour retrouver votre collection.' : 'Quelques détails et votre passion prend vie.' }}</p>
+          </ion-card-header>
+          <ion-card-content>
+            @if (notice()) { <div class="notice notice-success">{{ notice() }}</div> }
+            @if (error()) { <div class="notice notice-error">{{ error() }}</div> }
+            <form class="auth-form" #authForm="ngForm" (ngSubmit)="submitAuth(authForm)">
+              @if (authMode() === 'register') {
+                <div class="form-row">
+                  <ion-input label="Prénom" label-placement="stacked" fill="outline" name="firstName" ngModel required autocomplete="given-name" placeholder="Camille" />
+                  <ion-input label="Nom" label-placement="stacked" fill="outline" name="lastName" ngModel required autocomplete="family-name" placeholder="Martin" />
+                </div>
+                <ion-input label="Âge" label-placement="stacked" fill="outline" name="age" [ngModel]="18" type="number" min="15" max="90" required />
+                <ion-card class="profile-photo-card">
+                  <ion-card-header>
+                    <ion-card-title>Photos additionnelles</ion-card-title>
+                  </ion-card-header>
+                  <ion-card-content>
+                    @if (!tabPhotos().length) {
+                      <i>Aucune photo ajoutée</i>
+                      <ion-button
+                        type="button"
+                        (click)="presentPhotoActionSheet()"
+                        expand="block"
+                        fill="outline"
+                      >Ajouter une photo</ion-button>
+                    } @else {
+                      <div class="photo-container">
+                        <ion-grid>
+                          <ion-row>
+                            @for (photo of tabPhotos(); track $index) {
+                              <ion-col size="6">
+                                <img
+                                  [src]="photo"
+                                  [alt]="'Aperçu de la photo ' + ($index + 1)"
+                                  style="width: 100%; height: 120px; border-radius: 8px;"
+                                />
+                                <ion-button
+                                  type="button"
+                                  (click)="deletePhoto($index)"
+                                  fill="clear"
+                                  size="small"
+                                  class="delete-button"
+                                  [attr.aria-label]="'Supprimer la photo ' + ($index + 1)"
+                                >
+                                  <ion-icon name="trash-outline" color="danger" slot="icon-only" />
+                                </ion-button>
+                              </ion-col>
+                            }
+                          </ion-row>
+                        </ion-grid>
+                        <ion-button
+                          type="button"
+                          (click)="presentPhotoActionSheet()"
+                          expand="block"
+                          fill="outline"
+                        >Ajouter une photo</ion-button>
+                      </div>
+                    }
+                  </ion-card-content>
+                </ion-card>
+              }
+              <ion-input label="Adresse e-mail" label-placement="stacked" fill="outline" name="email" ngModel type="email" required autocomplete="email" placeholder="vous@exemple.fr" />
+              <ion-input label="Mot de passe" label-placement="stacked" fill="outline" name="password" ngModel type="password" required minlength="6" [autocomplete]="authMode() === 'login' ? 'current-password' : 'new-password'" placeholder="6 caractères minimum" />
+              <ion-button class="auth-submit" expand="block" type="submit" [disabled]="loading()">
+                {{ loading() ? 'Un instant…' : authMode() === 'login' ? 'Se connecter' : 'Créer mon compte' }}
+              </ion-button>
+            </form>
+            <p class="auth-switch">
+              {{ authMode() === 'login' ? 'Pas encore de compte ?' : 'Vous avez déjà un compte ?' }}
+              <button type="button" (click)="authMode.set(authMode() === 'login' ? 'register' : 'login'); error.set(''); notice.set(''); tabPhotos.set([])">
+                {{ authMode() === 'login' ? 'S’inscrire' : 'Se connecter' }}
+              </button>
+            </p>
+          </ion-card-content>
+        </ion-card>
+        <p class="auth-legal">En continuant, vous acceptez nos conditions d’utilisation.</p>
+      </main>
+    </div>
+  } @else {
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand-lockup" href="/home">
+          <span class="brand-icon"><ion-icon [icon]="icons.film" /></span>
+          <span>Popcorn <b>Club</b></span>
+        </a>
+        <div class="sidebar-section-label">MENU</div>
+        <nav class="side-nav" aria-label="Navigation principale">
+          <button [class.active]="page() === 'discover'" (click)="changePage('discover')"><ion-icon [icon]="icons.video" /><span>Explorer</span></button>
+          @if (!isAdmin()) {
+            <button [class.active]="page() === 'favorites'" (click)="changePage('favorites')"><ion-icon [icon]="icons.heartOutline" /><span>Ma collection</span><span class="nav-count">{{ favorites().length }}</span></button>
+          }
+          @if (!isAdmin()) {
+            <button [class.active]="page() === 'matches'" (click)="changePage('matches')"><ion-icon [icon]="icons.people" /><span>Matching</span>@if (rankedMatches().length) { <span class="nav-count match-count">{{ rankedMatches().length }}</span> }</button>
+          }
+          @if (isAdmin()) {
+            <div class="sidebar-section-label admin-label">ESPACE ADMIN</div>
+            <button [class.active]="page() === 'admin'" (click)="changePage('admin')"><ion-icon [icon]="icons.shield" /><span>Administration</span></button>
+          }
+        </nav>
+        <div class="sidebar-bottom">
+          <button class="profile-menu" (click)="logout()">
+            <img [src]="profile()!.photoURL" alt="" />
+            <span class="profile-menu-name"><b>{{ profile()!.firstName }} {{ profile()!.lastName }}</b><small>{{ isAdmin() ? 'Administrateur' : 'Membre Popcorn Club' }}</small></span>
+            <ion-icon [icon]="icons.logout" />
+          </button>
+        </div>
+      </aside>
+
+      <main class="main-panel">
+        <header class="topbar">
+          <div class="breadcrumb"><span>Accueil</span><b>/</b>{{ page() === 'discover' ? 'Explorer les films' : page() === 'favorites' ? 'Ma collection' : page() === 'matches' ? 'Vos cinéphiles' : 'Administration' }}</div>
+          <div class="topbar-actions">
+            <span class="topbar-date">VOTRE ESPACE CINÉ</span>
+            <img [src]="profile()!.photoURL" [alt]="'Photo de ' + profile()!.firstName" />
+            <button class="mobile-logout" type="button" aria-label="Se déconnecter" (click)="logout()"><ion-icon [icon]="icons.logout" /></button>
+          </div>
+        </header>
+        <div class="page-content">
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">BONJOUR {{ profile()!.firstName.toLocaleUpperCase() }} ✦</p>
+              <h1>{{ page() === 'discover' ? 'Explorer les films' : page() === 'favorites' ? 'Ma collection' : page() === 'matches' ? 'Vos cinéphiles' : 'Administration' }}</h1>
+              <p class="page-subtitle">{{ page() === 'discover' ? 'Le prochain coup de cœur est peut-être ici.' : page() === 'favorites' ? 'Tous vos films préférés, réunis au même endroit.' : page() === 'matches' ? 'Des goûts en commun, de belles découvertes à la clé.' : 'Gérez le catalogue et les membres de Popcorn Club.' }}</p>
+            </div>
+            @if (page() === 'discover') { <div class="collection-pill"><ion-icon [icon]="icons.heart" /><b>{{ favorites().length }}</b> {{ favorites().length === 1 ? 'favori' : 'favoris' }}</div> }
+          </div>
+          @if (error()) { <div class="notice notice-error page-notice"><ion-icon [icon]="icons.close" />{{ error() }}<button (click)="error.set('')" aria-label="Fermer">×</button></div> }
+          @if (notice()) { <div class="notice notice-success page-notice"><ion-icon [icon]="icons.check" />{{ notice() }}<button (click)="notice.set('')" aria-label="Fermer">×</button></div> }
+
+          @if (page() === 'discover' || page() === 'favorites') {
+            <section class="catalog-section">
+              <div class="section-heading">
+                <div><span class="eyebrow">{{ page() === 'discover' ? 'FAITES VOTRE CHOIX' : 'VOTRE SÉLECTION PERSONNELLE' }}</span><h2>{{ page() === 'discover' ? 'À l’affiche de votre ciné' : favorites().length ? favorites().length + ' film(s) à revoir' : 'Votre collection vous attend' }}</h2></div>
+                @if (page() === 'discover') {
+                  <form class="search-form" (ngSubmit)="searchMovies()">
+                    <ion-icon [icon]="icons.search" />
+                    <input [ngModel]="searchText()" (ngModelChange)="onSearchChange($event)" name="search" placeholder="Rechercher un film…" aria-label="Rechercher un film" />
+                    @if (searchText()) { <button type="button" aria-label="Effacer la recherche" (click)="onSearchChange('')">×</button> }
+                  </form>
+                }
+              </div>
+              @if (refreshing()) { <div class="loading-state"><span class="spinner"></span>Chargement de votre cinéma…</div> }
+              @else if (shownMovies().length) {
+                <div class="movie-grid">
+                  @for (movie of shownMovies(); track movie.id) {
+                    <article class="movie-card">
+                      <div class="movie-poster">
+                        @if (movie.posterPath) { <img [src]="posterUrl(movie.posterPath)" [alt]="'Affiche de ' + movie.title" loading="lazy" /> }
+                        @else { <div class="poster-placeholder"><ion-icon [icon]="icons.film" /><span>CINÉMATCH</span></div> }
+                        <span class="movie-year">{{ movie.year || '—' }}</span>
+                        <button class="favorite-button" [class.is-favorite]="favoriteIds().has(movie.id)" (click)="toggleFavorite(movie)" [attr.aria-label]="favoriteIds().has(movie.id) ? 'Retirer ' + movie.title + ' des favoris' : 'Ajouter ' + movie.title + ' aux favoris'"><ion-icon [icon]="favoriteIds().has(movie.id) ? icons.heart : icons.heartOutline" /></button>
+                      </div>
+                      <div class="movie-meta"><h3 [title]="movie.title">{{ movie.title }}</h3><div class="movie-genres">@for (genre of movie.genres; track genre) { <span>{{ genre }}</span> }@if (movie.actors.length) { <span class="cast-count">{{ movie.actors.length }} acteurs</span> }</div>@if (movie.overview) { <p class="movie-overview">{{ movie.overview }}</p> }</div>
+                    </article>
+                  }
+                </div>
+              } @else {
+                <div class="empty-state"><span class="empty-icon"><ion-icon [icon]="icons.film" /></span><h3>{{ page() === 'favorites' ? 'Aucun film pour le moment' : 'Aucun film trouvé' }}</h3><p>{{ page() === 'favorites' ? 'Vous n’avez pas encore de favoris. Explorez le catalogue et ajoutez les films qui vous ressemblent.' : searchText() ? 'Vérifiez votre recherche ou la clé API TMDB.' : 'Le catalogue est encore vide. Un administrateur peut y ajouter les premiers films.' }}</p></div>
+              }
+              @if (page() === 'discover') { <p class="catalog-source">{{ tmdbResults() ? 'Résultats TMDB · Recherche en français' : 'Catalogue Firestore géré par votre administrateur · Configurez TMDB pour rechercher plus de films' }}</p> }
+            </section>
+          }
+
+          @if (page() === 'matches') {
+            <section class="matches-section">
+              @if (refreshing()) {
+                <div class="loading-state"><span class="spinner"></span>Actualisation des correspondances…</div>
+              } @else if (!favorites().length) {
+                <div class="empty-state"><span class="empty-icon"><ion-icon [icon]="icons.film" /></span><h3>Ajoutez quelques films à vos favoris</h3><p>Nous avons besoin de connaître vos goûts pour trouver les cinéphiles qui vous ressemblent.</p></div>
+              } @else if (!matchProfiles().length) {
+                <div class="empty-state"><span class="empty-icon"><ion-icon [icon]="icons.people" /></span><h3>Aucun autre profil actif</h3><p>Le matching apparaîtra lorsqu’un autre utilisateur actif aura rejoint Popcorn Club et ajouté des films à ses favoris.</p></div>
+              } @else if (!hasOtherUsersWithFavorites()) {
+                <div class="empty-state"><span class="empty-icon"><ion-icon [icon]="icons.heartOutline" /></span><h3>Vos autres cinéphiles n’ont pas encore de favoris</h3><p>Demandez aux autres utilisateurs d’ajouter leurs films préférés pour calculer leur compatibilité.</p></div>
+              } @else if (!rankedMatches().length) {
+                @if (developingMatches().length) {
+                  <div class="matches-grid">
+                    @for (match of developingMatches(); track match.profile.uid) {
+                      <article class="match-card">
+                        <div class="match-card-top"><img [src]="match.profile.photoURL || '/favicon.svg'" alt="" /><span class="match-score"><ion-icon [icon]="icons.heart" /> {{ match.result.score }}%</span></div>
+                        <h3>{{ match.profile.displayName }}</h3><p class="match-caption">Compatibilité à développer · seuil : 75 %</p>
+                        <div class="score-track"><span [style.width.%]="match.result.score"></span></div>
+                        <div class="match-details"><span><i></i> Films <b>{{ match.result.movieOverlap }}%</b></span><span><i></i> Genres <b>{{ match.result.genreOverlap }}%</b></span><span><i></i> Acteurs <b>{{ match.result.actorOverlap }}%</b></span><span><i></i> Années proches <b>{{ match.result.yearOverlap }}%</b></span></div>
+                        @if (match.result.sharedTitles.length) { <div class="common-films"><b>Films en commun</b><p>{{ match.result.sharedTitles.join(' · ') }}</p></div> }
+                        @if (match.result.sharedGenres.length) { <div class="common-films"><b>Genres en commun</b><p>{{ match.result.sharedGenres.join(' · ') }}</p></div> }
+                        @if (match.result.sharedActors.length) { <div class="common-films"><b>Acteurs en commun</b><p>{{ match.result.sharedActors.join(' · ') }}</p></div> }
+                        @if (match.result.sharedYears.length) { <div class="common-films"><b>Années proches</b><p>{{ match.result.sharedYears.join(' · ') }}</p></div> }
+                      </article>
+                    }
+                  </div>
+                } @else {
+                  <div class="empty-state"><span class="empty-icon"><ion-icon [icon]="icons.people" /></span><h3>Votre prochain match se prépare</h3><p>Aucun profil ne dépasse encore 75 % de compatibilité. Revenez après avoir enrichi votre collection ou invitez vos amis !</p></div>
+                }
+              } @else {
+                <div class="matches-grid">
+                  @for (match of rankedMatches(); track match.profile.uid) {
+                    <article class="match-card">
+                      <div class="match-card-top"><img [src]="match.profile.photoURL || '/favicon.svg'" alt="" /><span class="match-score"><ion-icon [icon]="icons.heart" /> {{ match.result.score }}%</span></div>
+                      <h3>{{ match.profile.displayName }}</h3><p class="match-caption">Votre partenaire de cinéma</p>
+                      <div class="score-track"><span [style.width.%]="match.result.score"></span></div>
+                      <div class="match-details"><span><i></i> Films <b>{{ match.result.movieOverlap }}%</b></span><span><i></i> Genres <b>{{ match.result.genreOverlap }}%</b></span><span><i></i> Acteurs <b>{{ match.result.actorOverlap }}%</b></span><span><i></i> Années proches <b>{{ match.result.yearOverlap }}%</b></span></div>
+                      @if (match.result.sharedTitles.length) { <div class="common-films"><b>Films en commun</b><p>{{ match.result.sharedTitles.join(' · ') }}</p></div> }
+                      @if (match.result.sharedGenres.length) { <div class="common-films"><b>Genres en commun</b><p>{{ match.result.sharedGenres.join(' · ') }}</p></div> }
+                      @if (match.result.sharedActors.length) { <div class="common-films"><b>Acteurs en commun</b><p>{{ match.result.sharedActors.join(' · ') }}</p></div> }
+                      @if (match.result.sharedYears.length) { <div class="common-films"><b>Années proches</b><p>{{ match.result.sharedYears.join(' · ') }}</p></div> }
+                    </article>
+                  }
+                </div>
+              }
+            </section>
+          }
+
+          @if (page() === 'admin' && isAdmin()) {
+            <section class="admin-section">
+              <div class="admin-form-card">
+                <div class="admin-card-heading"><span class="admin-card-icon"><ion-icon [icon]="icons.add" /></span><div><h2>Ajouter un film</h2><p>Enrichissez le catalogue partagé de Popcorn Club.</p></div></div>
+                <form class="admin-movie-form" #movieForm="ngForm" (ngSubmit)="addMovie(movieForm)">
+                  <label>Titre du film<input name="title" ngModel required placeholder="Le fabuleux destin d’Amélie Poulain" /></label>
+                  <div class="form-row">
+                    <label>Année de sortie<input name="year" ngModel type="number" min="1888" max="2100" placeholder="2001" /></label>
+                    <ion-card class="keyword-card">
+                      <ion-card-content>
+                        <ion-label>Ajouter un genre</ion-label>
+                        <ion-input
+                          (keyup)="onKeywordKeyup($event)"
+                          [(ngModel)]="inputKeyword"
+                          [ngModelOptions]="{ standalone: true }"
+                          name="keywords"
+                          type="text"
+                          placeholder="Ex. Comédie "
+                        />
+                        <div class="keyword-chips">
+                          @for (keyword of tabKeywords; track $index) {
+                            <ion-chip (click)="deleteKeyword($index)" color="primary">{{ keyword }}</ion-chip>
+                          }
+                        </div>
+                      </ion-card-content>
+                    </ion-card>
+                  </div>
+                  <ion-card class="profile-photo-card">
+                    <ion-card-header>
+                      <ion-card-title>Affiche du film</ion-card-title>
+                    </ion-card-header>
+                    <ion-card-content>
+                      @if (moviePoster()) {
+                        <div class="profile-photo-preview">
+                          <img [src]="moviePoster()" alt="Aperçu de l’affiche du film" />
+                          <ion-button
+                            type="button"
+                            (click)="moviePoster.set(null)"
+                            fill="clear"
+                            size="small"
+                            class="delete-photo-button"
+                            aria-label="Supprimer l’affiche"
+                          >
+                            <ion-icon [icon]="icons.trash" color="danger" slot="icon-only" />
+                          </ion-button>
+                        </div>
+                      } @else {
+                        <i>Aucune affiche ajoutée</i>
+                      }
+                      <ion-button
+                        type="button"
+                        (click)="presentMoviePosterActionSheet()"
+                        expand="block"
+                        fill="outline"
+                      >{{ moviePoster() ? 'Changer l’affiche' : 'Ajouter une affiche' }}</ion-button>
+                    </ion-card-content>
+                  </ion-card>
+                  <ion-card class="keyword-card">
+                    <ion-card-content>
+                      <ion-label>Ajouter un acteur (tapez une virgule après le nom)</ion-label>
+                      <input
+                        [(ngModel)]="inputActor"
+                        [ngModelOptions]="{ standalone: true }"
+                        (keyup)=" $event.key === ',' && addActor() "
+                        placeholder="Ex. Audrey Tautou,"
+                        type="text"
+                      />
+                      <div class="keyword-chips">
+                        @for (actor of tabActors; track $index) {
+                          <ion-chip (click)="deleteActor($index)" color="primary">{{ actor }}</ion-chip>
+                        }
+                      </div>
+                    </ion-card-content>
+                  </ion-card>
+                  <label>Synopsis<textarea name="overview" ngModel rows="3" placeholder="De quoi parle ce film ?"></textarea></label>
+                  <button class="primary-button" type="submit"><ion-icon [icon]="icons.add" /> Ajouter au catalogue</button>
+                </form>
+              </div>
+              <div class="admin-users-card">
+                <div class="admin-card-heading"><span class="admin-card-icon"><ion-icon [icon]="icons.people" /></span><div><h2>Gestion des membres</h2><p>Désactivez ou réactivez un compte sans supprimer ses données.</p></div></div>
+                <div class="user-list">
+                  @for (user of adminUsers(); track user.uid) {
+                    <div class="user-row"><img [src]="user.photoURL || '/favicon.svg'" alt="" /><div class="user-row-info"><b>{{ user.firstName }} {{ user.lastName }}</b><span>{{ user.email }}</span></div><span class="user-status" [class.is-disabled]="user.disabled">{{ user.disabled ? 'Désactivé' : user.role === 'admin' ? 'Admin' : 'Actif' }}</span>@if (user.uid !== profile()!.uid) { <button class="user-toggle" [class.enable-user]="user.disabled" (click)="toggleUserDisabled(user)">{{ user.disabled ? 'Réactiver' : 'Désactiver' }}</button> }</div>
+                  } @empty { <p class="empty-users">Aucun membre à afficher.</p> }
+                </div>
+              </div>
+              <div class="admin-catalog-count"><ion-icon [icon]="icons.film" /> {{ catalog().length }} film(s) dans le catalogue</div>
+            </section>
+          }
+        </div>
+      </main>
+    </div>
+  }
+</ion-content>

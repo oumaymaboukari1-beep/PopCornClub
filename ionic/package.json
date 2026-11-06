@@ -1,0 +1,43 @@
+{
+  "name": "popcorn-club",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@angular/common": "^21.2.0",
+    "@angular/compiler": "^21.2.0",
+    "@angular/core": "^21.2.0",
+    "@angular/forms": "^21.2.0",
+    "@angular/platform-browser": "^21.2.0",
+    "@angular/router": "^21.2.0",
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/camera": "^8.2.6",
+    "@capacitor/core": "^8.6.0",
+    "@ionic/angular": "^9.0.10",
+    "@ionic/pwa-elements": "^3.4.0",
+    "firebase": "^11.10.0",
+    "ionicons": "^8.1.0",
+    "rxjs": "~7.8.0",
+    "swiper": "^12.2.0",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^21.2.0",
+    "@angular/cli": "^21.2.0",
+    "@angular/compiler-cli": "^21.2.0",
+    "@capacitor/cli": "^8.6.0",
+    "angular-eslint": "^21.2.0",
+    "eslint": "^10.0.0",
+    "jsdom": "^28.0.0",
+    "typescript": "~5.9.2",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^4.0.8"
+  }
+}

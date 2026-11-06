@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function activeUser() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.disabled == false;
+    }
+
+    function isAdmin() {
+      return activeUser()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function activeUserAfterWrite() {
+      return signedIn()
+        && existsAfter(/databases/$(database)/documents/users/$(request.auth.uid))
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.disabled == false;
+    }
+
+    match /users/{userId} {
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.uid == userId
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role == 'user'
+        && request.resource.data.disabled == false
+        && request.resource.data.age is int
+        && request.resource.data.age >= 13
+        && request.resource.data.age <= 120;
+      allow read: if activeUser() && (request.auth.uid == userId || isAdmin());
+      allow update: if activeUser() && (
+        (request.auth.uid == userId
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['firstName', 'lastName', 'age', 'photoURL'])
+          && request.resource.data.age is int
+          && request.resource.data.age >= 13
+          && request.resource.data.age <= 120)
+        || (isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['disabled']))
+      );
+      allow delete: if false;
+
+      match /favorites/{movieId} {
+        allow read, create, update, delete: if activeUser()
+          && request.auth.uid == userId;
+      }
+    }
+
+    match /movies/{movieId} {
+      allow read: if activeUser();
+      allow create: if isAdmin()
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0;
+      allow update, delete: if isAdmin();
+    }
+
+    match /matchProfiles/{userId} {
+      allow read: if activeUser()
+        && (request.auth.uid == userId || resource.data.enabled == true || isAdmin());
+      allow create: if activeUserAfterWrite()
+        && request.auth.uid == userId
+        && request.resource.data.uid == userId
+        && request.resource.data.enabled == true;
+      allow update: if activeUser() && (
+        (request.auth.uid == userId
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['displayName', 'photoURL', 'favoriteMovies', 'updatedAt'])
+          && request.resource.data.enabled == resource.data.enabled)
+        || (isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['enabled']))
+      );
+      allow delete: if false;
+    }
+  }
+}

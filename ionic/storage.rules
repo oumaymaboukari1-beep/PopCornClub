@@ -1,0 +1,24 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function activeUser() {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.disabled == false;
+    }
+
+    function canUpload(userId) {
+      return request.auth != null
+        && request.auth.uid == userId
+        && (!firestore.exists(/databases/(default)/documents/users/$(userId)) || activeUser());
+    }
+
+    match /profile-photos/{userId} {
+      allow read: if activeUser();
+      allow create, update: if canUpload(userId)
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
